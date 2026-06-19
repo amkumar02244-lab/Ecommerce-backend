@@ -1,51 +1,67 @@
-from dataclasses import dataclass
-from typing import Optional
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, Float, Integer
+from app.core.database import Base
 
-@dataclass
-class CartItem:
-    id: str
-    user_id: str          # which user's cart
-    product_id: str       # which product
-    quantity: int         # how many
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+class CartItem(Base):
+    __tablename__ = "cart_items"
 
-@dataclass
-class Order:
-    id: str
-    user_id: str          # who placed the order
-    total_amount: float   # total price
-    status: str           # pending, confirmed, shipped, delivered, cancelled
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, index=True, nullable=False)
+    product_id = Column(String, index=True, nullable=False)
+    quantity = Column(Integer, default=1)
+    
+    created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
+    updated_at = Column(String, nullable=True)
 
-@dataclass
-class OrderItem:
-    id: str
-    order_id: str         # which order this belongs to
-    product_id: str       # which product
-    quantity: int         # how many
-    price: float          # price at time of purchase
-    created_at: Optional[str] = None
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "product_id": self.product_id,
+            "quantity": self.quantity,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
 
+class Order(Base):
+    __tablename__ = "orders"
 
-# CSV columns
-CART_COLUMNS = [
-    "id", "user_id", "product_id",
-    "quantity", "created_at", "updated_at"
-]
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, index=True, nullable=False)
+    total_amount = Column(Float, nullable=False)
+    status = Column(String, default="pending")
+    
+    created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
+    updated_at = Column(String, nullable=True)
 
-ORDER_COLUMNS = [
-    "id", "user_id", "total_amount",
-    "status", "created_at", "updated_at"
-]
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "total_amount": self.total_amount,
+            "status": self.status,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
 
-ORDER_ITEM_COLUMNS = [
-    "id", "order_id", "product_id",
-    "quantity", "price", "created_at"
-]
+class OrderItem(Base):
+    __tablename__ = "order_items"
 
-# Table names
-CART_TABLE = "cart_items"
-ORDER_TABLE = "orders"
-ORDER_ITEM_TABLE = "order_items"
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column(String, index=True, nullable=False)
+    product_id = Column(String, index=True, nullable=False)
+    quantity = Column(Integer, default=1)
+    price = Column(Float, nullable=False)
+    
+    created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "order_id": self.order_id,
+            "product_id": self.product_id,
+            "quantity": self.quantity,
+            "price": self.price,
+            "created_at": self.created_at
+        }

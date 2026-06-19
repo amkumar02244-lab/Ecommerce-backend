@@ -23,8 +23,11 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:3000"
 
-    # Data directory
+    # Data directory (kept for backwards compatibility or file uploads if any)
     DATA_DIR: str = "data"
+
+    # Database Settings
+    DATABASE_URL: str = "sqlite:///./data/ecommerce.db"
 
     # JWT Settings — NEW
     JWT_ALGORITHM: str = "HS256"

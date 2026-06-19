@@ -1,161 +1,146 @@
 from typing import Optional, List, Dict
-from app.core.database import (
-    read_all,
-    read_by_id,
-    find_one,
-    find_many,
-    insert,
-    update,
-    delete,
-    init_table
-)
-from app.models.order import (
-    CART_TABLE, CART_COLUMNS,
-    ORDER_TABLE, ORDER_COLUMNS,
-    ORDER_ITEM_TABLE, ORDER_ITEM_COLUMNS
-)
-
-# Auto create all 3 CSV files on startup
-init_table(CART_TABLE, CART_COLUMNS)
-init_table(ORDER_TABLE, ORDER_COLUMNS)
-init_table(ORDER_ITEM_TABLE, ORDER_ITEM_COLUMNS)
-
+from datetime import datetime
+import uuid
+from app.core.database import SessionLocal
+from app.models.order import CartItem, Order, OrderItem
 
 class OrderRepository:
-    """
-    Database operations for cart, orders and order items.
-
-    3 tables:
-    - cart_items.csv   → user's current cart
-    - orders.csv       → placed orders
-    - order_items.csv  → items inside each order
-    """
 
     # ─────────────────────────────
     # CART OPERATIONS
     # ─────────────────────────────
 
     def get_cart_items(self, user_id: str) -> List[Dict]:
-        """
-        Get all cart items for a user.
-        SQL: SELECT * FROM cart_items WHERE user_id = user_id
-        """
-        return find_many(CART_TABLE, "user_id", user_id)
+        with SessionLocal() as db:
+            items = db.query(CartItem).filter(CartItem.user_id == user_id).all()
+            return [i.to_dict() for i in items]
 
-    def get_cart_item(
-        self,
-        user_id: str,
-        product_id: str
-    ) -> Optional[Dict]:
-        """
-        Check if a product already exists in user's cart.
-        SQL: SELECT * FROM cart_items
-             WHERE user_id = user_id AND product_id = product_id
-        Used to update quantity instead of adding duplicate.
-        """
-        items = self.get_cart_items(user_id)
-        for item in items:
-            if item.get("product_id") == product_id:
-                return item
-        return None
+    def get_cart_item(self, user_id: str, product_id: str) -> Optional[Dict]:
+        with SessionLocal() as db:
+            item = db.query(CartItem).filter(
+                CartItem.user_id == user_id, 
+                CartItem.product_id == product_id
+            ).first()
+            return item.to_dict() if item else None
 
     def add_to_cart(self, cart_data: Dict) -> Dict:
-        """
-        Add a new item to cart.
-        SQL: INSERT INTO cart_items VALUES (...)
-        """
-        return insert(CART_TABLE, cart_data)
+        with SessionLocal() as db:
+            if "id" not in cart_data or not cart_data["id"]:
+                cart_data["id"] = str(uuid.uuid4())
+            if "created_at" not in cart_data or not cart_data["created_at"]:
+                cart_data["created_at"] = datetime.utcnow().isoformat()
+            
+            if "quantity" in cart_data and isinstance(cart_data["quantity"], str):
+                cart_data["quantity"] = int(cart_data["quantity"])
 
-    def update_cart_item(
-        self,
-        cart_item_id: str,
-        updated_data: Dict
-    ) -> Optional[Dict]:
-        """
-        Update cart item (usually quantity).
-        SQL: UPDATE cart_items SET ... WHERE id = cart_item_id
-        """
-        return update(CART_TABLE, cart_item_id, updated_data)
+            item = CartItem(**cart_data)
+            db.add(item)
+            db.commit()
+            db.refresh(item)
+            return item.to_dict()
+
+    def update_cart_item(self, cart_item_id: str, updated_data: Dict) -> Optional[Dict]:
+        with SessionLocal() as db:
+            item = db.query(CartItem).filter(CartItem.id == cart_item_id).first()
+            if not item:
+                return None
+            
+            if "quantity" in updated_data and isinstance(updated_data["quantity"], str):
+                updated_data["quantity"] = int(updated_data["quantity"])
+
+            for key, value in updated_data.items():
+                setattr(item, key, value)
+            
+            item.updated_at = datetime.utcnow().isoformat()
+            db.commit()
+            db.refresh(item)
+            return item.to_dict()
 
     def remove_cart_item(self, cart_item_id: str) -> bool:
-        """
-        Remove one item from cart.
-        SQL: DELETE FROM cart_items WHERE id = cart_item_id
-        """
-        return delete(CART_TABLE, cart_item_id)
+        with SessionLocal() as db:
+            item = db.query(CartItem).filter(CartItem.id == cart_item_id).first()
+            if not item:
+                return False
+            db.delete(item)
+            db.commit()
+            return True
 
     def clear_cart(self, user_id: str) -> None:
-        """
-        Remove ALL items from user's cart.
-        Called after order is placed successfully.
-        SQL: DELETE FROM cart_items WHERE user_id = user_id
-        """
-        items = self.get_cart_items(user_id)
-        for item in items:
-            delete(CART_TABLE, item["id"])
+        with SessionLocal() as db:
+            db.query(CartItem).filter(CartItem.user_id == user_id).delete()
+            db.commit()
 
     # ─────────────────────────────
     # ORDER OPERATIONS
     # ─────────────────────────────
 
     def create_order(self, order_data: Dict) -> Dict:
-        """
-        Create a new order.
-        SQL: INSERT INTO orders VALUES (...)
-        """
-        return insert(ORDER_TABLE, order_data)
+        with SessionLocal() as db:
+            if "id" not in order_data or not order_data["id"]:
+                order_data["id"] = str(uuid.uuid4())
+            if "created_at" not in order_data or not order_data["created_at"]:
+                order_data["created_at"] = datetime.utcnow().isoformat()
+                
+            if "total_amount" in order_data and isinstance(order_data["total_amount"], str):
+                order_data["total_amount"] = float(order_data["total_amount"])
+
+            order = Order(**order_data)
+            db.add(order)
+            db.commit()
+            db.refresh(order)
+            return order.to_dict()
 
     def get_order_by_id(self, order_id: str) -> Optional[Dict]:
-        """
-        Get one order by ID.
-        SQL: SELECT * FROM orders WHERE id = order_id
-        """
-        return read_by_id(ORDER_TABLE, order_id)
+        with SessionLocal() as db:
+            order = db.query(Order).filter(Order.id == order_id).first()
+            return order.to_dict() if order else None
 
     def get_orders_by_user(self, user_id: str) -> List[Dict]:
-        """
-        Get all orders for a user.
-        SQL: SELECT * FROM orders WHERE user_id = user_id
-        """
-        return find_many(ORDER_TABLE, "user_id", user_id)
+        with SessionLocal() as db:
+            orders = db.query(Order).filter(Order.user_id == user_id).all()
+            return [o.to_dict() for o in orders]
 
     def get_all_orders(self) -> List[Dict]:
-        """
-        Get all orders — admin only.
-        SQL: SELECT * FROM orders
-        """
-        return read_all(ORDER_TABLE)
+        with SessionLocal() as db:
+            orders = db.query(Order).all()
+            return [o.to_dict() for o in orders]
 
-    def update_order_status(
-        self,
-        order_id: str,
-        status: str
-    ) -> Optional[Dict]:
-        """
-        Update order status.
-        SQL: UPDATE orders SET status = status WHERE id = order_id
-        """
-        return update(ORDER_TABLE, order_id, {"status": status})
+    def update_order_status(self, order_id: str, status: str) -> Optional[Dict]:
+        with SessionLocal() as db:
+            order = db.query(Order).filter(Order.id == order_id).first()
+            if not order:
+                return None
+            order.status = status
+            order.updated_at = datetime.utcnow().isoformat()
+            db.commit()
+            db.refresh(order)
+            return order.to_dict()
 
     # ─────────────────────────────
     # ORDER ITEMS OPERATIONS
     # ─────────────────────────────
 
     def add_order_item(self, item_data: Dict) -> Dict:
-        """
-        Add an item to an order.
-        SQL: INSERT INTO order_items VALUES (...)
-        Called once per product when order is created.
-        """
-        return insert(ORDER_ITEM_TABLE, item_data)
+        with SessionLocal() as db:
+            if "id" not in item_data or not item_data["id"]:
+                item_data["id"] = str(uuid.uuid4())
+            if "created_at" not in item_data or not item_data["created_at"]:
+                item_data["created_at"] = datetime.utcnow().isoformat()
+                
+            if "quantity" in item_data and isinstance(item_data["quantity"], str):
+                item_data["quantity"] = int(item_data["quantity"])
+            if "price" in item_data and isinstance(item_data["price"], str):
+                item_data["price"] = float(item_data["price"])
+
+            item = OrderItem(**item_data)
+            db.add(item)
+            db.commit()
+            db.refresh(item)
+            return item.to_dict()
 
     def get_order_items(self, order_id: str) -> List[Dict]:
-        """
-        Get all items inside an order.
-        SQL: SELECT * FROM order_items WHERE order_id = order_id
-        """
-        return find_many(ORDER_ITEM_TABLE, "order_id", order_id)
+        with SessionLocal() as db:
+            items = db.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+            return [i.to_dict() for i in items]
 
-
-# Singleton instance
 order_repository = OrderRepository()

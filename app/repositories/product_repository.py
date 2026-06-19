@@ -1,130 +1,115 @@
 from typing import Optional, List, Dict
-from app.core.database import (
-    read_all,
-    read_by_id,
-    find_one,
-    insert,
-    update,
-    delete,
-    init_table
-)
-from app.models.product import PRODUCT_TABLE, PRODUCT_COLUMNS
-
-# Auto create data/products.csv on startup
-init_table(PRODUCT_TABLE, PRODUCT_COLUMNS)
-
+from datetime import datetime
+import uuid
+from sqlalchemy import or_
+from app.core.database import SessionLocal
+from app.models.product import Product
 
 class ProductRepository:
-    """
-    All database operations for the Product table.
-    SQL equivalent operations shown for each method.
-
-    In MuleSoft terms: Database Connector operations
-    for the products table.
-    """
 
     def get_all(self) -> List[Dict]:
-        """
-        Get all products.
-        SQL: SELECT * FROM products
-        """
-        return read_all(PRODUCT_TABLE)
+        with SessionLocal() as db:
+            products = db.query(Product).all()
+            return [p.to_dict() for p in products]
 
     def get_active(self) -> List[Dict]:
-        """
-        Get only active products.
-        SQL: SELECT * FROM products WHERE is_active = 'True'
-
-        Customers should only see active products.
-        Admin can see all including inactive.
-        """
-        products = read_all(PRODUCT_TABLE)
-        return [p for p in products if p.get("is_active") == "True"]
+        with SessionLocal() as db:
+            products = db.query(Product).filter(Product.is_active == True).all()
+            return [p.to_dict() for p in products]
 
     def get_by_id(self, product_id: str) -> Optional[Dict]:
-        """
-        Get one product by ID.
-        SQL: SELECT * FROM products WHERE id = product_id
-        """
-        return read_by_id(PRODUCT_TABLE, product_id)
+        with SessionLocal() as db:
+            product = db.query(Product).filter(Product.id == product_id).first()
+            return product.to_dict() if product else None
 
     def get_by_category(self, category: str) -> List[Dict]:
-        """
-        Get all products in a category.
-        SQL: SELECT * FROM products WHERE category = category
-        """
-        products = read_all(PRODUCT_TABLE)
-        return [
-            p for p in products
-            if p.get("category", "").lower() == category.lower()
-            and p.get("is_active") == "True"
-        ]
+        with SessionLocal() as db:
+            products = db.query(Product).filter(
+                Product.category.ilike(category),
+                Product.is_active == True
+            ).all()
+            return [p.to_dict() for p in products]
 
     def search(self, keyword: str) -> List[Dict]:
-        """
-        Search products by name or description.
-        SQL: SELECT * FROM products
-             WHERE name LIKE '%keyword%'
-             OR description LIKE '%keyword%'
-
-        CSV doesn't support LIKE queries so we
-        do it manually in Python — same result.
-        """
-        keyword_lower = keyword.lower()
-        products = read_all(PRODUCT_TABLE)
-        return [
-            p for p in products
-            if keyword_lower in p.get("name", "").lower()
-            or keyword_lower in p.get("description", "").lower()
-            and p.get("is_active") == "True"
-        ]
+        with SessionLocal() as db:
+            products = db.query(Product).filter(
+                or_(
+                    Product.name.ilike(f"%{keyword}%"),
+                    Product.description.ilike(f"%{keyword}%")
+                ),
+                Product.is_active == True
+            ).all()
+            return [p.to_dict() for p in products]
 
     def sku_exists(self, sku: str) -> bool:
-        """
-        Check if a SKU already exists.
-        SQL: SELECT COUNT(*) FROM products WHERE sku = sku
-        Prevents duplicate product codes.
-        """
         if not sku:
             return False
-        return find_one(PRODUCT_TABLE, "sku", sku) is not None
+        with SessionLocal() as db:
+            return db.query(Product).filter(Product.sku == sku).first() is not None
 
     def create(self, product_data: Dict) -> Dict:
-        """
-        Insert a new product.
-        SQL: INSERT INTO products VALUES (...)
-        """
-        return insert(PRODUCT_TABLE, product_data)
+        with SessionLocal() as db:
+            if "id" not in product_data or not product_data["id"]:
+                product_data["id"] = str(uuid.uuid4())
+            if "created_at" not in product_data or not product_data["created_at"]:
+                product_data["created_at"] = datetime.utcnow().isoformat()
+            
+            # Map string booleans if necessary
+            if isinstance(product_data.get("is_active"), str):
+                product_data["is_active"] = product_data["is_active"] == "True"
+
+            # Parse string stock to int if needed
+            if "stock" in product_data and isinstance(product_data["stock"], str):
+                product_data["stock"] = int(product_data["stock"])
+            # Parse string price to float if needed
+            if "price" in product_data and isinstance(product_data["price"], str):
+                product_data["price"] = float(product_data["price"])
+
+            product = Product(**product_data)
+            db.add(product)
+            db.commit()
+            db.refresh(product)
+            return product.to_dict()
 
     def update(self, product_id: str, updated_data: Dict) -> Optional[Dict]:
-        """
-        Update a product by ID.
-        SQL: UPDATE products SET ... WHERE id = product_id
-        """
-        return update(PRODUCT_TABLE, product_id, updated_data)
+        with SessionLocal() as db:
+            product = db.query(Product).filter(Product.id == product_id).first()
+            if not product:
+                return None
+            
+            # Map string booleans if necessary
+            if "is_active" in updated_data and isinstance(updated_data["is_active"], str):
+                updated_data["is_active"] = updated_data["is_active"] == "True"
+
+            # Parse strings to numbers if needed
+            if "stock" in updated_data and isinstance(updated_data["stock"], str):
+                updated_data["stock"] = int(updated_data["stock"])
+            if "price" in updated_data and isinstance(updated_data["price"], str):
+                updated_data["price"] = float(updated_data["price"])
+
+            for key, value in updated_data.items():
+                setattr(product, key, value)
+            
+            product.updated_at = datetime.utcnow().isoformat()
+            db.commit()
+            db.refresh(product)
+            return product.to_dict()
 
     def delete(self, product_id: str) -> bool:
-        """
-        Delete a product by ID.
-        SQL: DELETE FROM products WHERE id = product_id
-        """
-        return delete(PRODUCT_TABLE, product_id)
+        with SessionLocal() as db:
+            product = db.query(Product).filter(Product.id == product_id).first()
+            if not product:
+                return False
+            db.delete(product)
+            db.commit()
+            return True
 
     def count_all(self) -> int:
-        """
-        Count total products.
-        SQL: SELECT COUNT(*) FROM products
-        Used by admin dashboard for stats.
-        """
-        return len(read_all(PRODUCT_TABLE))
+        with SessionLocal() as db:
+            return db.query(Product).count()
 
     def count_active(self) -> int:
-        """
-        Count active products only.
-        SQL: SELECT COUNT(*) FROM products WHERE is_active = 'True'
-        """
-        return len(self.get_active())
+        with SessionLocal() as db:
+            return db.query(Product).filter(Product.is_active == True).count()
 
-
-# Singleton instance
 product_repository = ProductRepository()

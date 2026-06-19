@@ -1,79 +1,38 @@
-from dataclasses import dataclass
-from typing import Optional
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, Boolean
+from app.core.database import Base
 
-# This defines what a User looks like in our "database" (CSV file)
-# Think of this as defining your CSV columns
-# Every field here = one column in data/users.csv
+class User(Base):
+    __tablename__ = "users"
 
-# In Java terms this is your User POJO:
-# public class User {
-#     private String id;
-#     private String email;
-#     ...
-# }
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password = Column(String, nullable=False)
+    role = Column(String, default="customer")
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
+    phone = Column(String, nullable=True)
+    avatar_url = Column(String, nullable=True)
+    
+    created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
+    updated_at = Column(String, nullable=True)
 
-@dataclass
-class User:
-    # Primary key - auto generated UUID
-    # CSV column: id
-    id: str
-
-    # Basic user info
-    # CSV columns: first_name, last_name, email
-    first_name: str
-    last_name: str
-    email: str
-
-    # Hashed password - we NEVER store plain text passwords
-    # CSV column: password
-    password: str
-
-    # Role controls what the user can access
-    # "customer" = normal user
-    # "admin"    = full access
-    # CSV column: role
-    role: str = "customer"
-
-    # Account status
-    # True  = can login
-    # False = blocked by admin
-    # CSV column: is_active
-    is_active: bool = True
-
-    # Email verification
-    # True  = email verified
-    # False = not verified yet
-    # CSV column: is_verified
-    is_verified: bool = False
-
-    # Optional fields - not required
-    # CSV columns: phone, avatar_url
-    phone: Optional[str] = None
-    avatar_url: Optional[str] = None
-
-    # Timestamps - auto managed by database layer
-    # CSV columns: created_at, updated_at
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
-
-# This defines the exact columns our CSV file will have
-# Order matters! This is the header row of data/users.csv
-USER_COLUMNS = [
-    "id",
-    "first_name",
-    "last_name",
-    "email",
-    "password",
-    "role",
-    "is_active",
-    "is_verified",
-    "phone",
-    "avatar_url",
-    "created_at",
-    "updated_at"
-]
-
-# Table name constant
-# Used by repository layer to know which CSV file to read/write
-USER_TABLE = "users"
+    def to_dict(self):
+        """Convert ORM object to dictionary for backward compatibility with services"""
+        return {
+            "id": self.id,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "email": self.email,
+            "password": self.password,
+            "role": self.role,
+            "is_active": str(self.is_active), # Keep "True"/"False" string for backward compatibility
+            "is_verified": str(self.is_verified),
+            "phone": self.phone,
+            "avatar_url": self.avatar_url,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }

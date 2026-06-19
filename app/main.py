@@ -5,7 +5,15 @@ from app.routes.auth import router as auth_router
 from app.routes.users import router as users_router
 from app.routes.products import router as products_router
 from app.routes.orders import router as orders_router
+from app.core.database import Base, engine
 
+# Import all models here so SQLAlchemy knows about them before creating tables
+from app.models.user import User
+from app.models.product import Product
+from app.models.order import Order, OrderItem, CartItem
+
+# Create all tables in the database
+Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title=settings.APP_NAME,
     description="Production-grade e-commerce backend API",

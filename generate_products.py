@@ -67,12 +67,13 @@ data_pools = {
     ]
 }
 
+from app.core.database import Base, engine
+from app.repositories.product_repository import product_repository
+from app.models.product import Product
+
 def generate_100_products():
-    csv_rows = []
-    
-    # We want exactly 100 items. We have 5 categories, each has 10 base products.
-    # We will expand the pool by dynamically creating variations (e.g. colors, capacities, bundles, editions)
-    # until we hit exactly 100 unique commercial products.
+    # Ensure tables are created
+    Base.metadata.create_all(bind=engine)
     
     variations = [
         {"suffix": "", "price_mult": 1.0, "stock_mult": 1.0, "desc_addon": "", "sku_addon": ""},
@@ -116,41 +117,27 @@ def generate_100_products():
                 sku = f"{cat[:2].upper()}-{sku_clean}{var['sku_addon']}"
                 description = f"{base['description']}{var['desc_addon']}"
                 
-                product_id = str(uuid.uuid4())
-                created_at = datetime.utcnow().isoformat()
-                
+                # Skip if sku already exists
+                if product_repository.sku_exists(sku):
+                    continue
+
                 row = {
-                    "id": product_id,
                     "name": name,
                     "description": description,
-                    "price": str(price),
-                    "stock": str(stock),
+                    "price": price,
+                    "stock": stock,
                     "category": cat,
-                    "is_active": "True",
+                    "is_active": True,
                     "image_url": base["image"],
                     "brand": base["brand"],
-                    "sku": sku,
-                    "created_at": created_at,
-                    "updated_at": ""
+                    "sku": sku
                 }
-                csv_rows.append(row)
+                
+                # Insert into PostgreSQL using our repository
+                product_repository.create(row)
                 current_count += 1
                 
-    # Save to products.csv
-    csv_file_path = os.path.join("data", "products.csv")
-    os.makedirs("data", exist_ok=True)
-    
-    fieldnames = [
-        "id", "name", "description", "price", "stock", "category", 
-        "is_active", "image_url", "brand", "sku", "created_at", "updated_at"
-    ]
-    
-    with open(csv_file_path, mode="w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(csv_rows)
-        
-    print(f"Successfully populated {len(csv_rows)} products into {csv_file_path}")
+    print(f"Successfully populated {current_count} products into the database.")
 
 if __name__ == "__main__":
     generate_100_products()
