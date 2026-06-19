@@ -1,0 +1,3 @@
+from app.repositories.user_repository import user_repository
+from app.repositories.product_repository import product_repository
+from app.repositories.order_repository import order_repository

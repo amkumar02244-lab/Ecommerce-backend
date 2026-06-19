@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Luxury Transition Wipe Demo</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+    }
+
+    body{
+      overflow:hidden;
+      font-family:'Inter',sans-serif;
+      background:#0f0f0f;
+      color:#fff;
+    }
+
+    .page{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100vh;
+      transition:opacity .6s ease;
+    }
+
+    /* =========================
+       HOME PAGE
+    ========================== */
+
+    .home{
+      background:
+      linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
+      url('https://images.unsplash.com/photo-1515377905703-c4788e51af15?q=80&w=1800&auto=format&fit=crop');
+      background-size:cover;
+      background-position:center;
+      display:flex;
+      align-items:center;
+      padding:0 8%;
+    }
+
+    .content{
+      max-width:650px;
+      z-index:5;
+    }
+
+    .sub{
+      letter-spacing:4px;
+      text-transform:uppercase;
+      color:#d9c2a3;
+      margin-bottom:20px;
+      font-size:.9rem;
+    }
+
+    h1{
+      font-family:'Cormorant Garamond',serif;
+      font-size:6rem;
+      line-height:0.95;
+      font-weight:500;
+      margin-bottom:24px;
+    }
+
+    p{
+      color:rgba(255,255,255,.75);
+      line-height:1.8;
+      max-width:500px;
+      margin-bottom:35px;
+    }
+
+    button{
+      border:none;
+      outline:none;
+      padding:18px 38px;
+      border-radius:50px;
+      cursor:pointer;
+      background:linear-gradient(
+      135deg,
+      rgba(230,210,180,.95),
+      rgba(195,155,110,.95)
+      );
+      color:#111;
+      font-weight:600;
+      letter-spacing:1px;
+      transition:all .4s ease;
+    }
+
+    button:hover{
+      transform:translateY(-3px);
+      box-shadow:0 15px 35px rgba(0,0,0,.25);
+    }
+
+    /* =========================
+       SERVICE PAGE
+    ========================== */
+
+    .service{
+      opacity:0;
+      pointer-events:none;
+      background:
+      linear-gradient(rgba(255,248,240,.92), rgba(255,248,240,.92)),
+      url('https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=1800&auto=format&fit=crop');
+      background-size:cover;
+      background-position:center;
+      color:#111;
+      display:flex;
+      align-items:center;
+      padding:0 8%;
+    }
+
+    .service.active{
+      opacity:1;
+      pointer-events:auto;
+    }
+
+    .service h2{
+      font-family:'Cormorant Garamond',serif;
+      font-size:5rem;
+      line-height:1;
+      font-weight:500;
+      margin-bottom:20px;
+    }
+
+    .service p{
+      color:#444;
+    }
+
+    /* =========================
+       LUXURY WIPE
+    ========================== */
+
+    .transition{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:999;
+      overflow:hidden;
+    }
+
+    .wipe{
+      position:absolute;
+      top:-20%;
+      left:-120%;
+      width:70%;
+      height:140vh;
+
+      transform:rotate(18deg);
+
+      backdrop-filter:blur(14px);
+
+      background:
+      linear-gradient(
+      135deg,
+      rgba(255,255,255,0.08),
+      rgba(255,255,255,0.18),
+      rgba(214,182,140,0.45),
+      rgba(255,255,255,0.08)
+      );
+
+      border-left:1px solid rgba(255,255,255,.15);
+      border-right:1px solid rgba(255,255,255,.2);
+
+      box-shadow:
+      0 0 60px rgba(255,230,200,.15),
+      inset 0 0 40px rgba(255,255,255,.08);
+
+      opacity:0;
+    }
+
+    .wipe::before{
+      content:'';
+      position:absolute;
+      inset:0;
+
+      background:
+      linear-gradient(
+      to right,
+      transparent,
+      rgba(255,255,255,.35),
+      transparent
+      );
+
+      width:30%;
+      transform:skewX(-20deg);
+      animation:shine 2s linear infinite;
+    }
+
+    @keyframes shine{
+      from{
+        transform:translateX(-200%) skewX(-20deg);
+      }
+      to{
+        transform:translateX(500%) skewX(-20deg);
+      }
+    }
+
+    .transition.active .wipe{
+  animation:wipeMove 2.1s cubic-bezier(.22,1,.36,1) forwards;
+}
+
+    @keyframes wipeMove{
+      0%{
+        left:-120%;
+        opacity:1;
+      }
+
+      50%{
+        opacity:1;
+      }
+
+      100%{
+        left:140%;
+        opacity:1;
+      }
+    }
+
+    /* =========================
+       BACK BUTTON
+    ========================== */
+
+    .back{
+      margin-top:30px;
+      background:#111;
+      color:#fff;
+    }
+
+    /* =========================
+       OVERLAY DEPTH
+    ========================== */
+
+    .page::after{
+      content:'';
+      position:absolute;
+      inset:0;
+      background:
+      radial-gradient(circle at top right,
+      rgba(255,255,255,.08),
+      transparent 40%);
+      pointer-events:none;
+    }
+
+    /* =========================
+       RESPONSIVE
+    ========================== */
+
+    @media(max-width:768px){
+
+      h1{
+        font-size:4rem;
+      }
+
+      .service h2{
+        font-size:3.5rem;
+      }
+
+      .wipe{
+        width:100%;
+      }
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <!-- HOME PAGE -->
+  <section class="page home" id="homePage">
+
+    <div class="content">
+      <div class="sub">Luxury Cosmetology Experience</div>
+
+      <h1>
+        Reveal Your<br>
+        Natural Radiance
+      </h1>
+
+      <p>
+        Advanced skincare and aesthetic treatments crafted
+        with precision, elegance, and modern wellness technology.
+      </p>
+
+      <button id="exploreBtn">
+        EXPLORE SERVICES
+      </button>
+    </div>
+
+  </section>
+
+  <!-- SERVICE PAGE -->
+  <section class="page service" id="servicePage">
+
+    <div class="content">
+      <div class="sub">Advanced Skin Treatments</div>
+
+      <h2>
+        Premium<br>
+        Facial Therapy
+      </h2>
+
+      <p>
+        Personalized rejuvenation programs combining
+        luxury care, clinical expertise, and a calming
+        wellness atmosphere.
+      </p>
+
+      <button class="back" id="backBtn">
+        BACK TO HOME
+      </button>
+    </div>
+
+  </section>
+
+  <!-- TRANSITION -->
+  <div class="transition" id="transition">
+    <div class="wipe"></div>
+  </div>
+
+  <script>
+
+    const exploreBtn = document.getElementById('exploreBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    const transition = document.getElementById('transition');
+
+    const homePage = document.getElementById('homePage');
+    const servicePage = document.getElementById('servicePage');
+
+    function startTransition(showService = true){
+
+      transition.classList.add('active');
+
+      setTimeout(() => {
+
+        if(showService){
+          homePage.style.opacity = '0';
+          servicePage.classList.add('active');
+        }else{
+          homePage.style.opacity = '1';
+          servicePage.classList.remove('active');
+        }
+
+      }, 450);
+
+      setTimeout(() => {
+        transition.classList.remove('active');
+      }, 1300);
+    }
+
+    exploreBtn.addEventListener('click', () => {
+      startTransition(true);
+    });
+
+    backBtn.addEventListener('click', () => {
+      startTransition(false);
+    });
+
+  </script>
+
+</body>
+</html>
