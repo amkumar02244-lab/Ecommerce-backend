@@ -28,6 +28,9 @@ def init_table(table_name: str, columns: List[str]) -> None:
     """
     path = get_table_path(table_name)
 
+    # Create the directory if it doesn't exist to prevent FileNotFoundError on deployment
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
     # Only create the file if it doesn't exist yet
     # We don't want to overwrite existing data
     if not os.path.exists(path):
