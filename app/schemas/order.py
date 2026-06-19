@@ -63,6 +63,19 @@ class CreateOrderRequest(BaseModel):
         }
 
 
+class DirectCreateOrderRequest(BaseModel):
+    """
+    POST /admin/orders/direct-create
+    For AI Agent to create orders without a cart.
+    """
+    customer_phone: str
+    customer_name: str
+    product_id: str
+    quantity: int = Field(1, ge=1)
+    address: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+
 class OrderItemResponse(BaseModel):
     """Single item inside an order."""
     id: str

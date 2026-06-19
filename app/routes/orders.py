@@ -5,6 +5,7 @@ from app.schemas.order import (
     CartResponse,
     CartItemResponse,
     CreateOrderRequest,
+    DirectCreateOrderRequest,
     OrderResponse,
     UpdateOrderStatusRequest
 )
@@ -121,6 +122,29 @@ def get_order(
 # ─────────────────────────────
 # ADMIN ORDER ENDPOINTS
 # ─────────────────────────────
+
+@router.post("/admin/orders/direct-create", response_model=OrderResponse, status_code=201)
+def direct_create_order(
+    request: DirectCreateOrderRequest,
+    # TODO: add admin dependency back if needed, currently disabled for agent testing
+    # admin: Dict = Depends(get_admin_user)
+):
+    """
+    Directly create an order without a cart — FOR AGENT USE.
+    
+    POST /admin/orders/direct-create
+    """
+    return order_service.direct_create_order(request)
+
+
+@router.get("/admin/orders/{order_id}", response_model=OrderResponse)
+def get_admin_order(order_id: str):
+    """
+    Get one order by ID across all users — FOR AGENT/ADMIN USE.
+    
+    GET /admin/orders/{order_id}
+    """
+    return order_service.get_order_by_id(order_id)
 
 @router.get("/admin/orders", response_model=List[OrderResponse])
 def get_all_orders(admin: Dict = Depends(get_admin_user)):

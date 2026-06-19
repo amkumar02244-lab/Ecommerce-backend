@@ -7,6 +7,7 @@ from app.schemas.order import (
     CartItemResponse,
     CartResponse,
     CreateOrderRequest,
+    DirectCreateOrderRequest,
     OrderItemResponse,
     OrderResponse,
     UpdateOrderStatusRequest
@@ -178,6 +179,59 @@ class OrderService:
             id=order["id"],
             user_id=user_id,
             total_amount=round(total, 2),
+            status="pending",
+            items=order_items_response,
+            created_at=order.get("created_at")
+        )
+
+    def direct_create_order(self, request: DirectCreateOrderRequest) -> OrderResponse:
+        product = product_repository.get_by_id(request.product_id)
+        if not product:
+            raise HTTPException(status_code=400, detail="Product not found")
+        if product.get("is_active") != "True":
+            raise HTTPException(status_code=400, detail="Product is not available")
+            
+        qty = request.quantity
+        stock = int(product.get("stock", 0))
+        if stock < qty:
+            raise HTTPException(status_code=400, detail=f"Only {stock} available")
+            
+        price = float(product["price"])
+        subtotal = round(price * qty, 2)
+        
+        # We use phone number as user_id for guest/agent orders
+        user_id = f"guest_{request.customer_phone}"
+        
+        order_data = {
+            "user_id": user_id,
+            "total_amount": str(subtotal),
+            "status": "pending"
+        }
+        order = order_repository.create_order(order_data)
+        
+        order_item = order_repository.add_order_item({
+            "order_id": order["id"],
+            "product_id": product["id"],
+            "quantity": str(qty),
+            "price": str(price)
+        })
+        
+        new_stock = stock - qty
+        product_repository.update(product["id"], {"stock": str(new_stock)})
+        
+        order_items_response = [OrderItemResponse(
+            id=order_item["id"],
+            product_id=product["id"],
+            product_name=product["name"],
+            quantity=qty,
+            price=price,
+            subtotal=subtotal
+        )]
+        
+        return OrderResponse(
+            id=order["id"],
+            user_id=user_id,
+            total_amount=subtotal,
             status="pending",
             items=order_items_response,
             created_at=order.get("created_at")
